@@ -1,0 +1,47 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30723.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ePubReader.SpecFlow", "ePubReader.SpecFlow\ePubReader.SpecFlow.csproj", "{9A69E8FA-5DC4-47CE-B22F-1D0DA7A17F59}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreateTests", "CreateTests\CreateTests.csproj", "{64E1E901-FDF6-42BD-9988-92DFEBFAF4B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ePubReader.Portable", "ePubReader.Portable\ePubReader.Portable.csproj", "{F575E04F-4CF4-436E-B579-A1BB8BFF5A66}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ePubReader", "ePubReader\ePubReader.csproj", "{B5D1C9DA-D5F6-42CD-B639-E6796DD2BDBB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{72D45EED-D0AA-4C1C-8EDA-4F56A672F223}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9A69E8FA-5DC4-47CE-B22F-1D0DA7A17F59}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9A69E8FA-5DC4-47CE-B22F-1D0DA7A17F59}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9A69E8FA-5DC4-47CE-B22F-1D0DA7A17F59}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9A69E8FA-5DC4-47CE-B22F-1D0DA7A17F59}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64E1E901-FDF6-42BD-9988-92DFEBFAF4B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64E1E901-FDF6-42BD-9988-92DFEBFAF4B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64E1E901-FDF6-42BD-9988-92DFEBFAF4B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64E1E901-FDF6-42BD-9988-92DFEBFAF4B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F575E04F-4CF4-436E-B579-A1BB8BFF5A66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F575E04F-4CF4-436E-B579-A1BB8BFF5A66}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F575E04F-4CF4-436E-B579-A1BB8BFF5A66}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F575E04F-4CF4-436E-B579-A1BB8BFF5A66}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B5D1C9DA-D5F6-42CD-B639-E6796DD2BDBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5D1C9DA-D5F6-42CD-B639-E6796DD2BDBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5D1C9DA-D5F6-42CD-B639-E6796DD2BDBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5D1C9DA-D5F6-42CD-B639-E6796DD2BDBB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
