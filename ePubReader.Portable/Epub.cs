@@ -12,10 +12,44 @@ using ICSharpCode.SharpZipLib.Zip;
 using ICSharpCode.SharpZipLib.Core;
 
 namespace eBdb.EpubReader {
-    public class Epub
+    public class Epub : IDisposable
     {
+        // Flag: Has Dispose already been called? 
+        private bool disposed = false;
+
+        // Public implementation of Dispose pattern callable by consumers. 
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        // Protected implementation of Dispose pattern. 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+                return;
+
+            if (disposing)
+            {
+                // Free any other managed objects here. 
+                //
+                _EpubFile.Close();
+            }
+
+            // Free any unmanaged objects here. 
+            //
+            disposed = true;
+        }
+
+        ~Epub()
+        {
+            Dispose(false);
+        }
+
 
         #region Properties
+
         //Note: Mandatory fields defined by OPF standard
         public string UUID { get; private set; }
         public List<string> ID { get; private set; }
@@ -43,13 +77,21 @@ namespace eBdb.EpubReader {
         private readonly ZipFile _EpubFile;
         private readonly string _ContentOpfPath;
         private string _TocFileName;
-        private readonly Dictionary<string, string> _LinksMapping = new Dictionary<string, string>(StringComparer.CurrentCultureIgnoreCase);
+
+        private readonly Dictionary<string, string> _LinksMapping =
+            new Dictionary<string, string>(StringComparer.CurrentCultureIgnoreCase);
+
         private string _CurrentFileName;
-        private static Regex _RefsRegex = new Regex(@"(?<prefix><\w+[^>]*?href\s*=\s*(""|'))(?<href>[^""']*)(?<suffix>(""|')[^>]*>)", Utils.REO_ci);
+
+        private static Regex _RefsRegex =
+            new Regex(@"(?<prefix><\w+[^>]*?href\s*=\s*(""|'))(?<href>[^""']*)(?<suffix>(""|')[^>]*>)", Utils.REO_ci);
+
         private static Regex _ExternalLinksRegex = new Regex(@"^\s*(http(s)?://|mailto:|ftp(s)?://)", Utils.REO_ci);
+
         #endregion
 
         #region Constructor
+
         public Epub(string ePubPath)
         {
             ID = new List<string>();
@@ -75,7 +117,7 @@ namespace eBdb.EpubReader {
 
 
             //if (File.Exists(ePubPath)) 
-            _EpubFile = new ZipFile(ePubPath);//ZipFile.Read(ePubPath);
+            _EpubFile = new ZipFile(ePubPath); //ZipFile.Read(ePubPath);
             //else throw new FileNotFoundException();
 
             string opfFilePath = GetOpfFilePath(_EpubFile);
@@ -87,9 +129,11 @@ namespace eBdb.EpubReader {
             LoadEpubMetaDataFromOpfFile(opfFilePath);
             if (_TocFileName != null) LoadTableOfContents();
         }
+
         #endregion
 
         #region Public Functions
+
         public string GetContentAsPlainText()
         {
             StringBuilder builder = new StringBuilder();
@@ -108,7 +152,8 @@ namespace eBdb.EpubReader {
             //Note: run through all content items and collect collection of replacement links (solves problem with client id value replacement)
             foreach (KeyValuePair<string, ContentData> pair in Content.OrderBy(item => item.Key))
             {
-                CollectReplacementLinks(_LinksMapping, GetTrimmedFileName(pair.Value.FileName, false), pair.Value.Content);
+                CollectReplacementLinks(_LinksMapping, GetTrimmedFileName(pair.Value.FileName, false),
+                    pair.Value.Content);
             }
 
             foreach (KeyValuePair<string, ContentData> pair in Content.OrderBy(item => item.Key))
@@ -119,7 +164,8 @@ namespace eBdb.EpubReader {
                     //Note: add link to top of page so they can be found by the table of contents
                     //then update links within body
                     _CurrentFileName = GetTrimmedFileName(pair.Value.FileName, false);
-                    string fullContentHtml = NormalizeRefs("<a id=\"" + _CurrentFileName.Replace('.', '_') + "\"/>" + m.Groups["body"].Value);
+                    string fullContentHtml =
+                        NormalizeRefs("<a id=\"" + _CurrentFileName.Replace('.', '_') + "\"/>" + m.Groups["body"].Value);
 
                     //embed base64 images & append
                     fullContentHtml = EmbedImages(fullContentHtml);
@@ -129,8 +175,11 @@ namespace eBdb.EpubReader {
             }
 
             string headPart = "";
-            Match match = Regex.Match(((ContentData)Content.OrderByDescending(item => item.Key).First().Value).Content, @"<head[^>]*>(?<head>.+?)</head>", Utils.REO_csi);
-            if (match.Success) headPart = Regex.Replace(match.Groups["head"].Value, @"<title[^>]*>.+?</title>", "", Utils.REO_csi);
+            Match match = Regex.Match(
+                ((ContentData) Content.OrderByDescending(item => item.Key).First().Value).Content,
+                @"<head[^>]*>(?<head>.+?)</head>", Utils.REO_csi);
+            if (match.Success)
+                headPart = Regex.Replace(match.Groups["head"].Value, @"<title[^>]*>.+?</title>", "", Utils.REO_csi);
 
             if (!Regex.IsMatch(headPart, @"<meta\s+[^>]*?http-equiv\s*=\s*(""|')Content-Type(""|')", Utils.REO_csi))
                 headPart += "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\" />";
@@ -138,31 +187,36 @@ namespace eBdb.EpubReader {
             headPart = EmbedCssData(headPart);
 
             string bodyTag = "<body>";
-            match = Regex.Match(((ContentData)Content.OrderByDescending(item => item.Key).First().Value).Content, @"<body[^>]*>", Utils.REO_ci);
+            match = Regex.Match(((ContentData) Content.OrderByDescending(item => item.Key).First().Value).Content,
+                @"<body[^>]*>", Utils.REO_ci);
             if (match.Success) bodyTag = match.Value;
 
 
             //if (Language.Count > 0 && CultureInfo.CreateSpecificCulture(Language[0]).TextInfo.IsRightToLeft)
             //    body = body.Insert(body.Length - 2, " dir=\"rtl\"");
 
-            return string.Format(_HtmlTemplate, string.Join(", ", Creator) + " - " + Title[0], headPart.Trim(), bodyTag, body);
+            return string.Format(_HtmlTemplate, string.Join(", ", Creator) + " - " + Title[0], headPart.Trim(), bodyTag,
+                body);
         }
 
 
         #endregion
 
         #region Private Functions
+
         private string EmbedImages(string html)
         {
-            return Regex.Replace(html, @"(?<prefix><\w+[^>]*?src\s*=\s*(""|'))(?<src>[^""']+)(?<suffix>(""|')[^>]*>)", SrcEvaluator, Utils.REO_ci);
+            return Regex.Replace(html, @"(?<prefix><\w+[^>]*?src\s*=\s*(""|'))(?<src>[^""']+)(?<suffix>(""|')[^>]*>)",
+                SrcEvaluator, Utils.REO_ci);
         }
 
         private string SrcEvaluator(Match match)
         {
             var extendedData = ExtendedData[GetTrimmedFileName(match.Groups["src"].Value, true)] as ExtendedData;
             return extendedData != null
-                       ? match.Groups["prefix"].Value + "data:" + extendedData.MimeType + ";base64," + extendedData.Content +
-                         match.Groups["suffix"].Value : match.Value;
+                ? match.Groups["prefix"].Value + "data:" + extendedData.MimeType + ";base64," + extendedData.Content +
+                  match.Groups["suffix"].Value
+                : match.Value;
         }
 
         //
@@ -183,7 +237,7 @@ namespace eBdb.EpubReader {
                 {
                     using (MemoryStream memoryStream = new MemoryStream())
                     {
-                        byte[] buffer = new byte[4096];     // 4K is optimum
+                        byte[] buffer = new byte[4096]; // 4K is optimum
                         StreamUtils.Copy(zipStream, memoryStream, buffer);
                         memoryStream.Position = 0;
 
@@ -195,10 +249,21 @@ namespace eBdb.EpubReader {
                         tmpXMLStream = sr.ReadToEnd();
                     }
                 }
-                XNamespace xNamespace = containerXml.Attribute("xmlns") != null ? containerXml.Attribute("xmlns").Value : XNamespace.None;
+                XNamespace xNamespace = containerXml.Attribute("xmlns") != null
+                    ? containerXml.Attribute("xmlns").Value
+                    : XNamespace.None;
                 if (xNamespace != XNamespace.None)
                 {
-                    return containerXml.Descendants(xNamespace + "rootfile").FirstOrDefault(p => p.Attribute("media-type") != null && p.Attribute("media-type").Value.Equals("application/oebps-package+xml", StringComparison.CurrentCultureIgnoreCase)).Attribute("full-path").Value;
+                    return
+                        containerXml.Descendants(xNamespace + "rootfile")
+                            .FirstOrDefault(
+                                p =>
+                                    p.Attribute("media-type") != null &&
+                                    p.Attribute("media-type")
+                                        .Value.Equals("application/oebps-package+xml",
+                                            StringComparison.CurrentCultureIgnoreCase))
+                            .Attribute("full-path")
+                            .Value;
                 }
                 else
                 {
@@ -207,10 +272,21 @@ namespace eBdb.EpubReader {
                     xDocument.Root.Add(new XAttribute("xmlns", "urn:oasis:names:tc:opendocument:xmlns:container"));
                     xDocument.Root.Attributes(XNamespace.Xmlns + "odfc").Remove();
                     containerXml = XElement.Parse(xDocument.ToString());
-                    xNamespace = containerXml.Attribute("xmlns") != null ? containerXml.Attribute("xmlns").Value : XNamespace.None;
+                    xNamespace = containerXml.Attribute("xmlns") != null
+                        ? containerXml.Attribute("xmlns").Value
+                        : XNamespace.None;
                     if (xNamespace != XNamespace.None)
                     {
-                        return containerXml.Descendants(xNamespace + "rootfile").FirstOrDefault(p => p.Attribute("media-type") != null && p.Attribute("media-type").Value.Equals("application/oebps-package+xml", StringComparison.CurrentCultureIgnoreCase)).Attribute("full-path").Value;
+                        return
+                            containerXml.Descendants(xNamespace + "rootfile")
+                                .FirstOrDefault(
+                                    p =>
+                                        p.Attribute("media-type") != null &&
+                                        p.Attribute("media-type")
+                                            .Value.Equals("application/oebps-package+xml",
+                                                StringComparison.CurrentCultureIgnoreCase))
+                                .Attribute("full-path")
+                                .Value;
                     }
                 }
             }
@@ -227,45 +303,77 @@ namespace eBdb.EpubReader {
             {
                 using (MemoryStream memoryStream = new MemoryStream())
                 {
-                    byte[] buffer = new byte[4096];     // 4K is optimum
+                    byte[] buffer = new byte[4096]; // 4K is optimum
                     StreamUtils.Copy(zipStream, memoryStream, buffer);
                     memoryStream.Position = 0;
                     contentOpf = XElement.Load(memoryStream);
                 }
             }
 
-            XNamespace xNamespace = contentOpf.Attribute("xmlns") != null ? contentOpf.Attribute("xmlns").Value : XNamespace.None;
+            XNamespace xNamespace = contentOpf.Attribute("xmlns") != null
+                ? contentOpf.Attribute("xmlns").Value
+                : XNamespace.None;
 
             string uniqueIdentifier = contentOpf.Attribute("unique-identifier").Value;
             UUID = contentOpf.Elements(xNamespace + "metadata").Elements()
                 .FirstOrDefault(e =>
-                                    e.Name.LocalName == "identifier"
-                                 && e.HasAttributes
-                                 && e.Attribute("id") != null
-                                 && e.Attribute("id").Value == uniqueIdentifier
-                               ).Value;
-            foreach (var metadataElement in contentOpf.Element(xNamespace + "metadata").Elements().Where(e => e.Value.Trim() != string.Empty))
+                    e.Name.LocalName == "identifier"
+                    && e.HasAttributes
+                    && e.Attribute("id") != null
+                    && e.Attribute("id").Value == uniqueIdentifier
+                ).Value;
+            foreach (
+                var metadataElement in
+                    contentOpf.Element(xNamespace + "metadata").Elements().Where(e => e.Value.Trim() != string.Empty))
             {
                 switch (metadataElement.Name.LocalName)
                 {
-                    case "title": Title.Add(metadataElement.Value); break;
-                    case "creator": Creator.Add(metadataElement.Value); break;
+                    case "title":
+                        Title.Add(metadataElement.Value);
+                        break;
+                    case "creator":
+                        Creator.Add(metadataElement.Value);
+                        break;
                     case "date":
                         var attribute = metadataElement.Attributes().FirstOrDefault(a => a.Name.LocalName == "event");
                         if (attribute != null) Date.Add(new DateData(attribute.Value, metadataElement.Value));
                         break;
-                    case "publisher": Publisher.Add(metadataElement.Value); break;
-                    case "subject": Subject.Add(metadataElement.Value); break;
-                    case "source": Source.Add(metadataElement.Value); break;
-                    case "rights": Rights.Add(metadataElement.Value); break;
-                    case "description": Description.Add(metadataElement.Value); break;
-                    case "contributor": Contributer.Add(metadataElement.Value); break;
-                    case "type": Type.Add(metadataElement.Value); break;
-                    case "format": Format.Add(metadataElement.Value); break;
-                    case "identifier": ID.Add(metadataElement.Value); break;
-                    case "language": Language.Add(metadataElement.Value); break;
-                    case "relation": Relation.Add(metadataElement.Value); break;
-                    case "coverage": Coverage.Add(metadataElement.Value); break;
+                    case "publisher":
+                        Publisher.Add(metadataElement.Value);
+                        break;
+                    case "subject":
+                        Subject.Add(metadataElement.Value);
+                        break;
+                    case "source":
+                        Source.Add(metadataElement.Value);
+                        break;
+                    case "rights":
+                        Rights.Add(metadataElement.Value);
+                        break;
+                    case "description":
+                        Description.Add(metadataElement.Value);
+                        break;
+                    case "contributor":
+                        Contributer.Add(metadataElement.Value);
+                        break;
+                    case "type":
+                        Type.Add(metadataElement.Value);
+                        break;
+                    case "format":
+                        Format.Add(metadataElement.Value);
+                        break;
+                    case "identifier":
+                        ID.Add(metadataElement.Value);
+                        break;
+                    case "language":
+                        Language.Add(metadataElement.Value);
+                        break;
+                    case "relation":
+                        Relation.Add(metadataElement.Value);
+                        break;
+                    case "coverage":
+                        Coverage.Add(metadataElement.Value);
+                        break;
                 }
             }
 
@@ -281,8 +389,8 @@ namespace eBdb.EpubReader {
             foreach (var spinElement in contentOpf.Elements(xNamespace + "spine").Elements())
             {
                 var itemElement = contentOpf.Elements(xNamespace + "manifest").Elements().FirstOrDefault(
-                                                                                           e =>
-                                                                                           e.Attribute("id").Value == spinElement.Attribute("idref").Value);
+                    e =>
+                        e.Attribute("id").Value == spinElement.Attribute("idref").Value);
                 if (itemElement == null)
                     throw new Exception("Invalid epub file.");
                 else if (itemElement == null) continue;
@@ -299,12 +407,17 @@ namespace eBdb.EpubReader {
                 //to ensure that we don't crash should someone mispackage
                 //
                 //check to see if fileName has already been added to Content dictionary
-                if (!Content.Values.Any(item => item.FileName == fileName)) Content.Add(fileName, new ContentData(fileName, _EpubFile, contentZipEntry));
-                if (!alreadyProcessedFiles.Contains(spinElement.Attribute("idref").Value)) alreadyProcessedFiles.Add(spinElement.Attribute("idref").Value);
+                if (!Content.Values.Any(item => item.FileName == fileName))
+                    Content.Add(fileName, new ContentData(fileName, _EpubFile, contentZipEntry));
+                if (!alreadyProcessedFiles.Contains(spinElement.Attribute("idref").Value))
+                    alreadyProcessedFiles.Add(spinElement.Attribute("idref").Value);
             }
 
             //grab the rest of the elements not already processed in the manifest
-            IEnumerable<XElement> manifestElements = contentOpf.Elements(xNamespace + "manifest").Elements().Where(e => !alreadyProcessedFiles.Contains(e.Attribute("id").Value));
+            IEnumerable<XElement> manifestElements =
+                contentOpf.Elements(xNamespace + "manifest")
+                    .Elements()
+                    .Where(e => !alreadyProcessedFiles.Contains(e.Attribute("id").Value));
             foreach (var manifestElement in manifestElements)
             {
                 string fileName = manifestElement.Attribute("href").Value;
@@ -312,19 +425,26 @@ namespace eBdb.EpubReader {
                 if (extendedZipEntry == null) continue;
                 //check to see if fileName has already been added to Extended dictionary
                 string trimmedFileName = GetTrimmedFileName(fileName, true);
-                if (!ExtendedData.Keys.Contains(trimmedFileName)) ExtendedData.Add(trimmedFileName, new ExtendedData(fileName, manifestElement.Attribute("media-type").Value, _EpubFile, extendedZipEntry));
-                if (string.Equals(manifestElement.Attribute("media-type").Value, "application/x-dtbncx+xml", StringComparison.CurrentCultureIgnoreCase)) _TocFileName = manifestElement.Attribute("href").Value;
+                if (!ExtendedData.Keys.Contains(trimmedFileName))
+                    ExtendedData.Add(trimmedFileName,
+                        new ExtendedData(fileName, manifestElement.Attribute("media-type").Value, _EpubFile,
+                            extendedZipEntry));
+                if (string.Equals(manifestElement.Attribute("media-type").Value, "application/x-dtbncx+xml",
+                    StringComparison.CurrentCultureIgnoreCase)) _TocFileName = manifestElement.Attribute("href").Value;
             }
         }
 
-        private static void CollectReplacementLinks(Dictionary<string, string> linksMapping, string fileName, string text)
+        private static void CollectReplacementLinks(Dictionary<string, string> linksMapping, string fileName,
+            string text)
         {
             MatchCollection matches = _RefsRegex.Matches(text);
             foreach (Match match in matches)
             {
                 if (!_ExternalLinksRegex.IsMatch(match.Groups["href"].Value))
                 {
-                    string targetFileName = (GetTrimmedFileName(match.Groups["href"].Value, true) ?? GetTrimmedFileName(fileName, true)) + GetAnchorValue(match.Groups["href"].Value);
+                    string targetFileName = (GetTrimmedFileName(match.Groups["href"].Value, true) ??
+                                             GetTrimmedFileName(fileName, true)) +
+                                            GetAnchorValue(match.Groups["href"].Value);
                     linksMapping[targetFileName] = GetNormalizedSrc(match.Groups["href"].Value);
                 }
             }
@@ -342,8 +462,9 @@ namespace eBdb.EpubReader {
         private static string RefsEvaluator(Match match)
         {
             return !_ExternalLinksRegex.IsMatch(match.Groups["href"].Value)
-                       ? match.Groups["prefix"].Value + GetNormalizedSrc(match.Groups["href"].Value) + match.Groups["suffix"].Value
-                       : match.Value.Insert(match.Value.Length - 2, "target=\"_blank\"");
+                ? match.Groups["prefix"].Value + GetNormalizedSrc(match.Groups["href"].Value) +
+                  match.Groups["suffix"].Value
+                : match.Value.Insert(match.Value.Length - 2, "target=\"_blank\"");
         }
 
         private static string GetAnchorValue(string fileName)
@@ -355,7 +476,9 @@ namespace eBdb.EpubReader {
         private string IdsEvaluator(Match match)
         {
             string originalFileName = GetTrimmedFileName(_CurrentFileName, true) + "#" + match.Groups["id"].Value;
-            return _LinksMapping.Keys.Contains(originalFileName) ? match.Groups["prefix"].Value + ((string)_LinksMapping[originalFileName]).Replace("#", "") : match.Value;
+            return _LinksMapping.Keys.Contains(originalFileName)
+                ? match.Groups["prefix"].Value + ((string) _LinksMapping[originalFileName]).Replace("#", "")
+                : match.Value;
         }
 
         private void LoadTableOfContents()
@@ -364,7 +487,9 @@ namespace eBdb.EpubReader {
             if (extendedData == null) return;
 
             XElement xElement = XElement.Parse(extendedData.Content);
-            XNamespace xNamespace = xElement.Attribute("xmlns") != null ? xElement.Attribute("xmlns").Value : XNamespace.None;
+            XNamespace xNamespace = xElement.Attribute("xmlns") != null
+                ? xElement.Attribute("xmlns").Value
+                : XNamespace.None;
 
             //Developer: Brian Kenney
             //Date: 7/29/2012
@@ -373,7 +498,8 @@ namespace eBdb.EpubReader {
             //if it does then then xNamespace will evaluate to None
             if (xNamespace != XNamespace.None)
             {
-                TOC = GetNavigationChildren(xElement.Element(xNamespace + "navMap").Elements(xNamespace + "navPoint"), xNamespace);
+                TOC = GetNavigationChildren(xElement.Element(xNamespace + "navMap").Elements(xNamespace + "navPoint"),
+                    xNamespace);
             }
             else
             {
@@ -389,7 +515,9 @@ namespace eBdb.EpubReader {
                 xNamespace = xElement.Attribute("xmlns") != null ? xElement.Attribute("xmlns").Value : XNamespace.None;
                 if (xNamespace != XNamespace.None)
                 {
-                    TOC = GetNavigationChildren(xElement.Element(xNamespace + "navMap").Elements(xNamespace + "navPoint"), xNamespace);
+                    TOC =
+                        GetNavigationChildren(
+                            xElement.Element(xNamespace + "navMap").Elements(xNamespace + "navPoint"), xNamespace);
                 }
             }
         }
@@ -400,11 +528,15 @@ namespace eBdb.EpubReader {
             if (!elements.Any()) return navigationPoints;
             navigationPoints.AddRange(elements.Select(navPoint =>
                 new NavPoint(navPoint.Attribute("id").Value,
-                            navPoint.Element(nameSpace + "navLabel").Element(nameSpace + "text").Value,
-                            Uri.UnescapeDataString(navPoint.Element(nameSpace + "content").Attribute("src").Value),
-                            int.Parse(navPoint.Attribute("playOrder").Value), Content[NormalizeFileName(Uri.UnescapeDataString(navPoint.Element(nameSpace + "content").Attribute("src").Value))] as ContentData,
-                            GetNavigationChildren(navPoint.Elements(nameSpace + "navPoint"),
-                            nameSpace))));
+                    navPoint.Element(nameSpace + "navLabel").Element(nameSpace + "text").Value,
+                    Uri.UnescapeDataString(navPoint.Element(nameSpace + "content").Attribute("src").Value),
+                    int.Parse(navPoint.Attribute("playOrder").Value),
+                    Content[
+                        NormalizeFileName(
+                            Uri.UnescapeDataString(navPoint.Element(nameSpace + "content").Attribute("src").Value))] as
+                        ContentData,
+                    GetNavigationChildren(navPoint.Elements(nameSpace + "navPoint"),
+                        nameSpace))));
             return navigationPoints;
         }
 
@@ -451,14 +583,17 @@ namespace eBdb.EpubReader {
 
         private string EmbedCssData(string head)
         {
-            return Regex.Replace(head, @"<link\s+[^>]*?(href\s*=\s*(""|')(?<href>[^""']+)(""|')[^>]*?|type\s*=\s*(""|')text/css(""|')[^>]*?){2}[^>]*?/>", CssEvaluator, Utils.REO_ci);
+            return Regex.Replace(head,
+                @"<link\s+[^>]*?(href\s*=\s*(""|')(?<href>[^""']+)(""|')[^>]*?|type\s*=\s*(""|')text/css(""|')[^>]*?){2}[^>]*?/>",
+                CssEvaluator, Utils.REO_ci);
         }
 
         private string CssEvaluator(Match match)
         {
             var extendedData = ExtendedData[GetTrimmedFileName(match.Groups["href"].Value, true)] as ExtendedData;
             return extendedData != null
-                       ? string.Format("<style type=\"text/css\">{0}</style>", extendedData.Content) : match.Value;
+                ? string.Format("<style type=\"text/css\">{0}</style>", extendedData.Content)
+                : match.Value;
         }
 
         private const string _HtmlTemplate = @"<!DOCTYPE html
@@ -472,6 +607,7 @@ namespace eBdb.EpubReader {
 				  {3}
 			   </body>
 			</html>";
+
         #endregion
     }
 }
